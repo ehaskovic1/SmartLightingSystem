@@ -18,6 +18,128 @@ This project was developed as part of coursework at the Faculty of Electrical En
 
 ---
 
+# Boost.Asio
+
+Boost.Asio is a cross-platform C++ library from the Boost library collection that provides support for network programming and asynchronous I/O operations [1]. It is a widely used and popular library for building high-performance network applications in C++.
+
+## Key Features
+
+- **Asynchronous I/O**  
+  Enables non-blocking operations for network and file I/O, making it suitable for high-performance servers and clients.
+
+- **Platform Independence**  
+  Abstracts platform-specific differences and provides a consistent API for network programming across operating systems.
+
+- **Thread Safety**  
+  Designed to work seamlessly in multithreaded environments for handling concurrent operations.
+
+- **Supported Protocols**
+  - TCP
+  - UDP
+  - Serial ports
+  - Timers
+  - Local sockets
+
+- **Ease of Use**  
+  Combines performance with usability by offering both low-level socket APIs and higher-level abstractions.
+
+## Typical Use Cases
+
+Boost.Asio is commonly used for building:
+
+- HTTP servers
+- Chat servers
+- Real-time communication systems
+- Any application requiring reliable networking capabilities
+
+---
+
+## Installing Boost.Asio
+
+The installation process for Boost.Asio involves the following steps:
+
+### Step 1: Clone the Repository
+
+First, clone the repository to your local system:
+
+```bash
+git clone https://github.com/boostorg/asio.git
+cd asio
+````
+
+---
+
+### Step 2: Initialize Submodules
+
+Boost.Asio uses submodules (e.g., Boost.Config). Initialize and update them with:
+
+```bash
+git submodule update --init --recursive
+```
+
+---
+
+### Step 3: Install Required Dependencies
+
+Ensure that the following tools are installed:
+
+* A C++ compiler that supports C++11 or newer (GCC, Clang, MSVC)
+* CMake (minimum version depends on your platform)
+* Build tools (e.g., make, ninja)
+
+**Ubuntu / Debian**
+
+```bash
+sudo apt update
+sudo apt install build-essential cmake
+```
+
+**Fedora / RHEL**
+
+```bash
+sudo dnf install gcc-c++ make cmake
+```
+
+**macOS**
+
+Install Xcode command line tools:
+
+```bash
+xcode-select --install
+```
+
+Then install CMake:
+
+```bash
+brew install cmake
+```
+
+---
+
+## Step 4: Build the Library
+
+Boost.Asio can be built as part of the full Boost distribution or as a standalone library.
+For this project and laboratory exercises, the standalone build of Asio is used.
+
+1. Create a build directory:
+
+```bash
+mkdir build
+cd build
+```
+
+2. Run CMake to configure the project:
+
+```bash
+cmake ..
+```
+
+3. Build the project:
+
+```bash
+cmake --build ..
+```
+
 ## Project Description
 
 Smart Lighting System (SLS) is a distributed smart public lighting management system implemented in C++ using Boost.Asio, TLS (OpenSSL).
@@ -142,3 +264,13 @@ At any time, you can open an additional terminal (or reuse one after testing) to
 ```
 
 This command connects to the central server and displays the current state of regions, luminaires, and sensors.
+
+---
+
+## Reference
+
+[1] Online. [https://think-async.com/Asio/](https://think-async.com/Asio/)
+
+```
+```
+
