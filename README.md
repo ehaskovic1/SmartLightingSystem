@@ -50,11 +50,13 @@ The system consists of:
 
 ```bash
 git clone https://github.com/username/SmartLightingSystem.git
+```
 
 Then enter the project directory:
 
 ```bash
 cd SmartLightingSystem
+```
 
 ## Compilation
 
@@ -62,18 +64,23 @@ All components must be compiled before running from the directory:
 
 ```bash
 ~/asio/SmartLightingSystem
-
+```
 Use the following commands:
 ```bash
 g++ -std=c++17 -O2 -I../include central_server.cpp -lboost_system -lssl -lcrypto -pthread -o central_server
+```
 ```bash
 g++ -std=c++17 -O2 -I../include regional_server.cpp -lboost_system -lssl -lcrypto -pthread -o regional_server
+```
 ```bash
 g++ -std=c++17 -O2 -I../include luminaire_client.cpp -lboost_system -lssl -lcrypto -pthread -o luminaire_client
+```
 ```bash
 g++ -std=c++17 -O2 -I../include sensor_udp.cpp -lboost_system -lssl -lcrypto -pthread -o sensor_udp
+```
 ```bash
 g++ -std=c++17 -O2 -I../include admin_cli.cpp -lboost_system -lssl -lcrypto -pthread -o ad
+```
 
 ## Running the System
 
@@ -92,6 +99,7 @@ The central server coordinates all regional servers and handles administrative r
 
 ```bash
 ./central_server 6000 cert.pem key.pem
+```
 
 ### Terminal 2 – Regional Server #1
 
@@ -99,6 +107,7 @@ This regional server manages devices in region 1 and connects securely to the ce
 
 ```bash
 ./regional_server 1 5555 7777 127.0.0.1 6000 5 cert.pem key.pem 20
+```
 
 ### Terminal 3 – Regional Server #2
 
@@ -106,6 +115,7 @@ This regional server manages devices in region 2.
 
 ```bash
 ./regional_server 2 5556 7778 127.0.0.1 6000 5 cert.pem key.pem 20
+```
 
 ### Terminal 4 – Luminaire (connected to Region #1)
 
@@ -113,6 +123,7 @@ This process simulates a smart street light connected to regional server #1.
 
 ```bash
 ./luminaire_client 127.0.0.1 5555 sls://lamp-001 1 60 30
+```
 
 ### Terminal 5 – UDP Sensor (connected to Region #1)
 
@@ -120,6 +131,7 @@ This process simulates a UDP-based environmental/motion sensor sending data to r
 
 ```bash
 ./sensor_udp 127.0.0.1 7777 sls://sensor-001 1 120 25 10 30
+```
 
 ### System Snapshot
 
@@ -127,5 +139,6 @@ At any time, you can open an additional terminal (or reuse one after testing) to
 
 ```bash
 ./admin_cli 127.0.0.1 6000
+```
 
 This command connects to the central server and displays the current state of regions, luminaires, and sensors.
