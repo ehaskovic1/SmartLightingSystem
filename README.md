@@ -177,7 +177,7 @@ git clone https://github.com/username/SmartLightingSystem.git
 Then enter the project directory:
 
 ```bash
-cd SmartLightingSystem
+cd asio/SmartLightingSystem
 ```
 
 ## Compilation
