@@ -271,6 +271,3 @@ This command connects to the central server and displays the current state of re
 
 [1] Online. [https://think-async.com/Asio/](https://think-async.com/Asio/)
 
-```
-```
-
