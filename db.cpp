@@ -287,4 +287,33 @@ void DbWriter::handle(const CommandEvent& e) {
   check_sqlite(sqlite3_step(st_command_), db_, "step command");
 }
 
+void DbWriter::log_alarm(
+    uint32_t region_id,
+    uint32_t ts_unix,
+    uint8_t  device_type,
+    uint32_t zone_id,
+    uint8_t  code,
+    const std::string& uri,
+    const std::string& text)
+{
+    const char* sql =
+        "INSERT INTO alarm "
+        "(region_id, ts_unix, device_type, zone_id, code, uri, text) "
+        "VALUES(?,?,?,?,?,?,?);";
+
+    sqlite3_stmt* stmt{};
+    sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr);
+
+    sqlite3_bind_int(stmt, 1, region_id);
+    sqlite3_bind_int(stmt, 2, ts_unix);
+    sqlite3_bind_int(stmt, 3, device_type);
+    sqlite3_bind_int(stmt, 4, zone_id);
+    sqlite3_bind_int(stmt, 5, code);
+    sqlite3_bind_text(stmt, 6, uri.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 7, text.c_str(), -1, SQLITE_TRANSIENT);
+
+    sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+}
+
 } // namespace sls

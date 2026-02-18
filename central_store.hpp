@@ -1,53 +1,9 @@
-/*
 #pragma once
 #include <unordered_map>
 #include <mutex>
 #include <vector>
 #include <cstdint>
-
-namespace sls {
-
-// Centralni server drži agregirane podatke iz regiona:
-// region_id -> { version, zone_power_sum }
-struct RegionAggregate {
-  uint32_t version{0};
-  std::unordered_map<uint32_t,uint32_t> zone_power_mw; // zone_id -> sum power
-};
-
-class CentralStore {
-public:
-  void upsert_region(uint32_t region_id, uint32_t version,
-                     const std::vector<std::pair<uint32_t,uint32_t>>& zone_power_sum)
-  {
-    std::scoped_lock lk(mu_);
-    auto& agg = regions_[region_id];
-    agg.version = version;
-    agg.zone_power_mw.clear();
-    for(auto& zp: zone_power_sum){
-      agg.zone_power_mw[zp.first] = zp.second;
-    }
-  }
-
-  std::unordered_map<uint32_t, RegionAggregate> snapshot() const {
-    std::scoped_lock lk(mu_);
-    return regions_;
-  }
-
-private:
-  mutable std::mutex mu_;
-  std::unordered_map<uint32_t, RegionAggregate> regions_;
-};
-
-} // namespace sls
-
-*/
-
-
-#pragma once
-#include <unordered_map>
-#include <mutex>
-#include <vector>
-#include <cstdint>
+#include <string>
 
 #include "proto.hpp"
 
@@ -65,9 +21,20 @@ struct RegionAggregate {
   std::unordered_map<uint32_t, ZoneDeviceSummary> zone_summary;
 };
 
+// Alarm record držimo u CentralStore (globalna lista, zadnjih N po želji)
+struct AlarmRecord {
+  uint32_t region_id{0};
+  uint32_t ts_unix{0};
+  uint8_t  device_type{0}; // 1=LUMINAIRE, 2=SENSOR
+  uint32_t zone_id{0};
+  uint8_t  code{0};
+  std::string uri;
+  std::string text;
+};
+
 class CentralStore {
 public:
-  // NOVO: prima i power i summary
+  // Prima i power i summary
   void upsert_region(uint32_t region_id,
                      uint32_t version,
                      const std::vector<std::pair<uint32_t,uint32_t>>& zone_power_sum,
@@ -93,9 +60,27 @@ public:
     return regions_;
   }
 
+  // --- ALARMS ---
+  void push_alarm(const AlarmRecord& a){
+    std::scoped_lock lk(mu_);
+    alarms_.push_back(a);
+
+    // opciono: limitiraj listu da ne raste beskonačno
+    constexpr size_t MAX_ALARMS = 2000;
+    if(alarms_.size() > MAX_ALARMS){
+      alarms_.erase(alarms_.begin(), alarms_.begin() + (alarms_.size() - MAX_ALARMS));
+    }
+  }
+
+  std::vector<AlarmRecord> alarms_snapshot() const{
+    std::scoped_lock lk(mu_);
+    return alarms_;
+  }
+
 private:
   mutable std::mutex mu_;
   std::unordered_map<uint32_t, RegionAggregate> regions_;
+  std::vector<AlarmRecord> alarms_;   // <-- samo JEDNOM, bez duplikata
 };
 
 } // namespace sls

@@ -30,7 +30,7 @@ int main(int argc, char** argv){
   sls::DbWriter db; //dodala
   db.start("sls.db", "schema.sql"); //dodala
   sls::CentralTlsServer srv(io, port, cert, key, store, db); //dodala db
-  io.run(); //dodala
+
 
   // Thread pool (kao na predavanju)
   unsigned n = std::max(2u, std::thread::hardware_concurrency());

@@ -28,6 +28,13 @@ enum class MsgType : uint8_t {
   FAULT_REPORT   = 6,   // uređaj prijavljuje kvar (FAULT)
   FAULT_ACK      = 7,   // server potvrdi prijem FAULT_REPORT
 
+
+
+  // Regional <-> Central (alarms)
+  ALARM_UP   = 22, // regional -> central: alarm event (fault handling)
+  ALARM_ACK  = 23, // central -> regional: ack
+
+
   // Regional <-> Central
   REGION_SYNC_UP   = 20, // regional -> central: agregirani podaci (potrošnja po zoni)
   REGION_SYNC_ACK  = 21, // central -> regional: ACK verzije
@@ -114,24 +121,50 @@ struct FaultReport {
   std::string text;    // opis
 };
 
+// Summary uređaja po zoni (regional -> central)
+struct ZoneDeviceSummary {
+  uint32_t zone_id{};
+  uint16_t lamp_total{};
+  uint16_t lamp_on{};
+  uint16_t lamp_fault{};
+  uint16_t sensor_total{};
+  uint16_t sensor_fault{};
+};
+
 // Regional -> Central (agregacija)
 struct RegionSyncUp {
   uint32_t region_id{};
   uint32_t version{};
   // parovi (zone_id, ukupna_potrošnja_mW) za tu regiju
   std::vector<std::pair<uint32_t,uint32_t>> zone_power_sum;
+  // NOVO: summary uređaja po zoni
+  std::vector<ZoneDeviceSummary> zone_device_summary;
 };
+
 struct RegionSyncAck {
   uint32_t region_id{};
   uint32_t version{};
   uint8_t  ok{};
 };
 
+struct AlarmUp {
+  uint32_t region_id{};
+  uint32_t ts_unix{};
+  uint8_t  device_type{}; // 1=LUMINAIRE, 2=SENSOR
+  uint32_t zone_id{};
+  uint8_t  code{};        // fault code
+  std::string uri;
+  std::string text;
+};
+
+struct AlarmAck {
+  uint32_t region_id{};
+  uint32_t ts_unix{};
+  uint8_t  ok{};
+};
+
 // Admin snapshot (central izvještaj)
 struct AdminSnapshotAck {
-  // Minimalno: per region: broj zona i suma potrošnje
-  // kodiramo kao: regions_count, pa niz: region_id, zones_count, (zone_id,power)...
-  // (encode/decode su dole)
   std::vector<uint8_t> raw;
 };
 
@@ -169,6 +202,48 @@ inline std::vector<uint8_t> encode_register_ack(const RegisterAck& a){
 inline RegisterAck decode_register_ack(const uint8_t* p, size_t n){
   const uint8_t* e = p+n;
   RegisterAck a{ get_u32(p,e) };
+  return a;
+}
+
+inline std::vector<uint8_t> encode_alarm_up(const AlarmUp& a){
+  std::vector<uint8_t> b;
+  put_u32(b, a.region_id);
+  put_u32(b, a.ts_unix);
+  put_u8(b, a.device_type);
+  put_u32(b, a.zone_id);
+  put_u8(b, a.code);
+  put_str(b, a.uri);
+  put_str(b, a.text);
+  return b;
+}
+
+inline AlarmUp decode_alarm_up(const uint8_t* p, size_t n){
+  const uint8_t* e = p + n;
+  AlarmUp a;
+  a.region_id   = get_u32(p,e);
+  a.ts_unix     = get_u32(p,e);
+  a.device_type = get_u8(p,e);
+  a.zone_id     = get_u32(p,e);
+  a.code        = get_u8(p,e);
+  a.uri         = get_str(p,e);
+  a.text        = get_str(p,e);
+  return a;
+}
+
+inline std::vector<uint8_t> encode_alarm_ack(const AlarmAck& a){
+  std::vector<uint8_t> b;
+  put_u32(b, a.region_id);
+  put_u32(b, a.ts_unix);
+  put_u8(b, a.ok);
+  return b;
+}
+
+inline AlarmAck decode_alarm_ack(const uint8_t* p, size_t n){
+  const uint8_t* e = p+n;
+  AlarmAck a;
+  a.region_id = get_u32(p,e);
+  a.ts_unix   = get_u32(p,e);
+  a.ok        = get_u8(p,e);
   return a;
 }
 
@@ -224,30 +299,67 @@ inline FaultReport decode_fault_report(const uint8_t* p, size_t n){
   return f;
 }
 
+// -------------------- RegionSyncUp (PROŠIRENO) --------------------
 inline std::vector<uint8_t> encode_region_sync_up(const RegionSyncUp& s){
   std::vector<uint8_t> b;
+
   put_u32(b, s.region_id);
   put_u32(b, s.version);
+
+  // 1) zone_power_sum
   put_u16(b, static_cast<uint16_t>(s.zone_power_sum.size()));
-  for (auto& zp : s.zone_power_sum){
-    put_u32(b, zp.first);
-    put_u32(b, zp.second);
+  for (const auto& zp : s.zone_power_sum){
+    put_u32(b, zp.first);   // zone_id
+    put_u32(b, zp.second);  // sum_power_mW
   }
+
+  // 2) zone_device_summary (NOVO)
+  put_u16(b, static_cast<uint16_t>(s.zone_device_summary.size()));
+  for(const auto& zs : s.zone_device_summary){
+    put_u32(b, zs.zone_id);
+    put_u16(b, zs.lamp_total);
+    put_u16(b, zs.lamp_on);
+    put_u16(b, zs.lamp_fault);
+    put_u16(b, zs.sensor_total);
+    put_u16(b, zs.sensor_fault);
+  }
+
   return b;
 }
+
 inline RegionSyncUp decode_region_sync_up(const uint8_t* p, size_t n){
   const uint8_t* e = p+n;
   RegionSyncUp s;
+
   s.region_id = get_u32(p,e);
   s.version   = get_u32(p,e);
+
+  // 1) zone_power_sum
   uint16_t cnt = get_u16(p,e);
   for(uint16_t i=0;i<cnt;i++){
-    uint32_t z = get_u32(p,e);
+    uint32_t z  = get_u32(p,e);
     uint32_t pw = get_u32(p,e);
     s.zone_power_sum.push_back({z,pw});
   }
+
+  // 2) zone_device_summary (NOVO, ali backward compatible)
+  if(p >= e) return s; // stara verzija bez summary bloka
+
+  uint16_t scnt = get_u16(p,e);
+  for(uint16_t i=0;i<scnt;i++){
+    ZoneDeviceSummary zs;
+    zs.zone_id      = get_u32(p,e);
+    zs.lamp_total   = get_u16(p,e);
+    zs.lamp_on      = get_u16(p,e);
+    zs.lamp_fault   = get_u16(p,e);
+    zs.sensor_total = get_u16(p,e);
+    zs.sensor_fault = get_u16(p,e);
+    s.zone_device_summary.push_back(zs);
+  }
+
   return s;
 }
+
 inline std::vector<uint8_t> encode_region_sync_ack(const RegionSyncAck& a){
   std::vector<uint8_t> b;
   put_u32(b, a.region_id);

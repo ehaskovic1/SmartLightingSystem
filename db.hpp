@@ -96,6 +96,15 @@ public:
 
   void log_command(std::string uri, uint32_t region_id, uint8_t cmd, uint8_t value, std::string source);
 
+void log_alarm(
+    uint32_t region_id,
+    uint32_t ts_unix,
+    uint8_t  device_type,
+    uint32_t zone_id,
+    uint8_t  code,
+    const std::string& uri,
+    const std::string& text
+);
 private:
   void worker_main();
   void apply_schema_from_file(const std::string& path);
