@@ -32,7 +32,7 @@
 
 #include "proto.hpp"
 #include "framed_tls.hpp"
-
+#include "pqc_tls.hpp" //dodala 18feb
 namespace asio = boost::asio;
 using tcp = asio::ip::tcp;
 
@@ -87,7 +87,8 @@ public:
       timer_heartbeat_(io_)
   {
     ssl_ctx_.set_verify_mode(asio::ssl::verify_none); // lab/demo
-
+      sls::apply_pqc_client(ssl_ctx_); //dodala 18.feb
+      
     // ------------------- FSM tranzicijska matrica -------------------
     transitions_.insert({"IDLE", "UNREGISTERED"});           // boot_done
     transitions_.insert({"UNREGISTERED", "REGISTERING"});    // send_uri / REGISTER_REQ

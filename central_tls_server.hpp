@@ -1,3 +1,4 @@
+
 #pragma once
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
@@ -9,6 +10,8 @@
 #include "proto.hpp"
 #include "framed_tls.hpp"
 #include "central_store.hpp"
+#include "pqc_tls.hpp" // dodala 18.feb
+#include "db.hpp" //dodala
 
 namespace sls {
 namespace asio = boost::asio;
@@ -17,15 +20,21 @@ using ssl_socket = asio::ssl::stream<tcp::socket>;
 
 // ============================================================
 // Centralni TLS server (agregacija + admin snapshot)
-// - Prima REGION_SYNC_UP od regionalnih servera
+// - Prima REGION_SYNC_UP (sad sadrži i zone_device_summary)
 // - Vraća REGION_SYNC_ACK
-// - Prima ADMIN_SNAPSHOT_REQ (CLI) i vraća agregatno stanje
+// - Admin snapshot vraća: zone_id + power + (lamp/sensor summary)
 // ============================================================
 
 class CentralSession : public std::enable_shared_from_this<CentralSession> {
 public:
-  CentralSession(ssl_socket sock, CentralStore& store)
-    : sock_(std::move(sock)), store_(store) {}
+ // CentralSession(ssl_socket sock, CentralStore& store)
+ //   : sock_(std::move(sock)), store_(store) {}
+
+// ovo gore bilo vrati
+
+CentralSession(ssl_socket sock, CentralStore& store, DbWriter& db)
+   : sock_(std::move(sock)), store_(store), db_(db) {}
+
 
   void start(){
     auto self = shared_from_this();
@@ -36,6 +45,7 @@ public:
       });
   }
 
+  //ovo ispod bilo
 private:
   void read_header(){
     auto self = shared_from_this();
@@ -71,26 +81,46 @@ private:
       });
   }
 
+  // SNAPSHOT FORMAT (UPDATED):
+  // u16 regions_count
+  // for each region:
+  //   u32 region_id
+  //   u32 version
+  //   u16 zones_count
+  //   for each zone:
+  //     u32 zone_id
+  //     u32 power_mw
+  //     u16 lamp_total, u16 lamp_on, u16 lamp_fault, u16 sensor_total, u16 sensor_fault
   std::vector<uint8_t> encode_admin_snapshot(){
-    // Format:
-    // u16 regions_count
-    // for each region:
-    //   u32 region_id
-    //   u32 version
-    //   u16 zones_count
-    //   repeated: u32 zone_id, u32 power_mw
     auto snap = store_.snapshot();
     std::vector<uint8_t> out;
+
     put_u16(out, static_cast<uint16_t>(snap.size()));
+
     for(const auto& [rid, agg] : snap){
       put_u32(out, rid);
       put_u32(out, agg.version);
+
       put_u16(out, static_cast<uint16_t>(agg.zone_power_mw.size()));
+
       for(const auto& [zid, pwr] : agg.zone_power_mw){
         put_u32(out, zid);
         put_u32(out, pwr);
+
+        // summary (ako ne postoji, 0)
+        auto it = agg.zone_summary.find(zid);
+        ZoneDeviceSummary zs{};
+        zs.zone_id = zid;
+        if(it != agg.zone_summary.end()) zs = it->second;
+
+        put_u16(out, zs.lamp_total);
+        put_u16(out, zs.lamp_on);
+        put_u16(out, zs.lamp_fault);
+        put_u16(out, zs.sensor_total);
+        put_u16(out, zs.sensor_fault);
       }
     }
+
     return out;
   }
 
@@ -103,17 +133,35 @@ private:
       switch(t){
         case MsgType::REGION_SYNC_UP: {
           auto up = decode_region_sync_up(p,n);
-          store_.upsert_region(up.region_id, up.version, up.zone_power_sum);
+          
+          // ovo ispod do store_. dodano
+          
+          db_.log_region_sync(
+           up.region_id,
+            up.version,
+            up.zone_power_sum
+            // up.zone_device_summary 
+          );
+          
+          //ovo bilo ispod	
+          store_.upsert_region(
+            up.region_id,
+            up.version,
+            up.zone_power_sum,
+            up.zone_device_summary // NOVO
+          );
 
           RegionSyncAck ack{ up.region_id, up.version, 1 };
           async_send(MsgType::REGION_SYNC_ACK, encode_region_sync_ack(ack));
           break;
         }
+
         case MsgType::ADMIN_SNAPSHOT_REQ: {
           auto payload = encode_admin_snapshot();
           async_send(MsgType::ADMIN_SNAPSHOT_ACK, payload);
           break;
         }
+
         default:
           break;
       }
@@ -126,6 +174,8 @@ private:
   ssl_socket sock_;
   CentralStore& store_;
 
+  DbWriter& db_;//DODALA
+  
   std::array<uint8_t,4> hdr_{};
   uint32_t body_len_{0};
   std::vector<uint8_t> body_;
@@ -136,19 +186,22 @@ public:
   CentralTlsServer(asio::io_context& io, uint16_t port,
                    const std::string& cert_file,
                    const std::string& key_file,
-                   CentralStore& store)
+                   CentralStore& store,
+                   DbWriter& db)
     : io_(io),
       acceptor_(io, tcp::endpoint(tcp::v4(), port)),
       ssl_ctx_(asio::ssl::context::tls_server),
-      store_(store)
+      store_(store),
+      db_(db)
   {
     ssl_ctx_.set_options(
       asio::ssl::context::default_workarounds |
       asio::ssl::context::no_sslv2 |
       asio::ssl::context::no_sslv3
     );
-    ssl_ctx_.use_certificate_chain_file(cert_file);
-    ssl_ctx_.use_private_key_file(key_file, asio::ssl::context::pem);
+   // ssl_ctx_.use_certificate_chain_file(cert_file); //zakomentarisala
+   // ssl_ctx_.use_private_key_file(key_file, asio::ssl::context::pem); //zakomentarisala
+   sls::apply_pqc_server(ssl_ctx_, cert_file, key_file); //dodala 18.feb
 
     do_accept();
   }
@@ -159,7 +212,7 @@ private:
       [this](const boost::system::error_code& ec, tcp::socket sock){
         if(!ec){
           ssl_socket ss(std::move(sock), ssl_ctx_);
-          std::make_shared<CentralSession>(std::move(ss), store_)->start();
+          std::make_shared<CentralSession>(std::move(ss), store_, db_)->start(); //ovdje dodala db_, bilo bez
         }
         do_accept();
       });
@@ -170,6 +223,9 @@ private:
   tcp::acceptor acceptor_;
   asio::ssl::context ssl_ctx_;
   CentralStore& store_;
+  
+  DbWriter& db_; //dodala
 };
+
 
 } // namespace sls

@@ -12,6 +12,7 @@
 #include <iostream>
 
 #include "central_tls_server.hpp"
+#include "db.hpp" //dodala
 
 int main(int argc, char** argv){
   if(argc < 4){
@@ -25,7 +26,11 @@ int main(int argc, char** argv){
 
   boost::asio::io_context io;
   sls::CentralStore store;
-  sls::CentralTlsServer srv(io, port, cert, key, store);
+  
+  sls::DbWriter db; //dodala
+  db.start("sls.db", "schema.sql"); //dodala
+  sls::CentralTlsServer srv(io, port, cert, key, store, db); //dodala db
+  io.run(); //dodala
 
   // Thread pool (kao na predavanju)
   unsigned n = std::max(2u, std::thread::hardware_concurrency());
