@@ -189,20 +189,40 @@ All components must be compiled before running from the directory:
 ```
 Use the following commands:
 ```bash
-g++ -std=c++17 -O2 -I../include central_server.cpp -lboost_system -lssl -lcrypto -pthread -o central_server
+g++ -std=c++17 -O2 -I../include -I. central_server.cpp db.cpp -lboost_system -lssl -lcrypto -lsqlite3 -pthread -o central_server
 ```
 ```bash
-g++ -std=c++17 -O2 -I../include regional_server.cpp -lboost_system -lssl -lcrypto -pthread -o regional_server
+g++ -std=c++17 -O2 -I../include -I. regional_server.cpp db.cpp -lboost_system -lssl -lcrypto -lsqlite3 -pthread -o regional_server
 ```
 ```bash
-g++ -std=c++17 -O2 -I../include luminaire_client.cpp -lboost_system -lssl -lcrypto -pthread -o luminaire_client
+g++ -std=c++17 -O2 -I../include -I. luminaire_client.cpp -lboost_system -lssl -lcrypto -pthread -o luminaire_client
 ```
 ```bash
 g++ -std=c++17 -O2 -I../include sensor_udp.cpp -lboost_system -lssl -lcrypto -pthread -o sensor_udp
 ```
 ```bash
-g++ -std=c++17 -O2 -I../include admin_cli.cpp -lboost_system -lssl -lcrypto -pthread -o ad
+g++ -std=c++17 -O2 -I../include -I. admin_cli.cpp -lboost_system -lssl -lcrypto -pthread -o admin_cli
 ```
+
+## Post-Quantum TLS Key and Certificate Generation
+
+For the TLS-based secure communication in the Smart Lighting System (SLS),
+a post-quantum cryptographic (PQC) key pair was generated using OpenSSL with the ML-DSA-44 algorithm.
+
+The following commands were used:
+```bash
+openssl genpkey -algorithm ml-dsa-44 -out key.pem
+openssl req -new -x509 -key key.pem -out cert.pem -days 365 -subj "/CN=sls-pqc"
+```
+Explanation:
+- ml-dsa-44 – Post-Quantum Digital Signature Algorithm (ML-DSA level 44)
+- key.pem – Private key used for TLS authentication
+- cert.pem – Self-signed X.509 certificate
+- x509 – Generates a self-signed certificate
+-days 365 – Certificate validity period
+- /CN=sls-pqc – Common Name used for TLS identification
+
+The generated certificate and private key are used by the central and regional servers to establish secure TLS connections in accordance with the project requirement for quantum-secure communication (TLS + PQC).
 
 ## Running the System
 
