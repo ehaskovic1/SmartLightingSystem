@@ -188,18 +188,23 @@ All components must be compiled before running from the directory:
 ~/asio/SmartLightingSystem
 ```
 Use the following commands:
+- for central server
 ```bash
 g++ -std=c++17 -O2 -I../include -I. central_server.cpp db.cpp -lboost_system -lssl -lcrypto -lsqlite3 -pthread -o central_server
 ```
+- for regional server
 ```bash
 g++ -std=c++17 -O2 -I../include -I. regional_server.cpp db.cpp -lboost_system -lssl -lcrypto -lsqlite3 -pthread -o regional_server
 ```
+- for luminaire client
 ```bash
 g++ -std=c++17 -O2 -I../include -I. luminaire_client.cpp -lboost_system -lssl -lcrypto -pthread -o luminaire_client
 ```
+- for sensor
 ```bash
 g++ -std=c++17 -O2 -I../include sensor_udp.cpp -lboost_system -lssl -lcrypto -pthread -o sensor_udp
 ```
+- for admin_cli
 ```bash
 g++ -std=c++17 -O2 -I../include -I. admin_cli.cpp -lboost_system -lssl -lcrypto -pthread -o admin_cli
 ```
