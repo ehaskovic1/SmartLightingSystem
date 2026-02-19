@@ -224,6 +224,10 @@ Explanation:
 
 The generated certificate and private key are used by the central and regional servers to establish secure TLS connections in accordance with the project requirement for quantum-secure communication (TLS + PQC).
 
+**Quantum-Safe OpenSSL Requirement**
+
+To run this project with post-quantum TLS support, **installation of a quantum-safe OpenSSL build is required**. The project relies on OpenSSL compiled with support for post-quantum cryptographic algorithms (e.g., ML-DSA). Please ensure that a quantum-safe version of OpenSSL (e.g., OpenSSL + OQS provider) is properly installed and configured before running the system.
+
 ## Running the System
 
 The Smart Lighting System follows a hierarchical distributed architecture.  
