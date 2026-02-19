@@ -1,0 +1,6 @@
+terminate called after throwing an instance of 'boost::wrapexcept<boost::system::system_error>'
+  what():  Invalid argument
+terminate called after throwing an instance of 'boost::wrapexcept<boost::system::system_error>'
+  what():  Invalid argument
+terminate called after throwing an instance of 'boost::wrapexcept<boost::system::system_error>'
+  what():  Invalid argument
