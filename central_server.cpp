@@ -1,18 +1,15 @@
 // central_server.cpp
 // ============================================================
-// Centralni server:
-// - Prima agregacije od 2 regionalna servera (REGION_SYNC_UP)
-// - Vraća ACK (REGION_SYNC_ACK)
-// - Admin (CLI) može tražiti snapshot (ADMIN_SNAPSHOT_REQ)
-// ============================================================
+// Central server:
+// - Receives aggregations from 2 regional servers (REGION_SYNC_UP)
+// - Sends back ACK (REGION_SYNC_ACK)
 
 #include <boost/asio.hpp>
 #include <thread>
 #include <vector>
 #include <iostream>
-
 #include "central_tls_server.hpp"
-#include "db.hpp" //dodala
+#include "db.hpp" 
 
 int main(int argc, char** argv){
   if(argc < 4){
@@ -27,12 +24,12 @@ int main(int argc, char** argv){
   boost::asio::io_context io;
   sls::CentralStore store;
   
-  sls::DbWriter db; //dodala
-  db.start("sls.db", "schema.sql"); //dodala
-  sls::CentralTlsServer srv(io, port, cert, key, store, db); //dodala db
+  sls::DbWriter db; 
+  db.start("sls.db", "schema.sql"); 
+  sls::CentralTlsServer srv(io, port, cert, key, store, db); 
 
 
-  // Thread pool (kao na predavanju)
+  
   unsigned n = std::max(2u, std::thread::hardware_concurrency());
   std::vector<std::thread> threads;
   threads.reserve(n);

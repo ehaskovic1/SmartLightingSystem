@@ -1,3 +1,14 @@
+// ============================================================
+// Regional UDP server for sensor telemetry
+// - async_receive_from
+// - update last_seen + upsert SENSOR in the registry
+// - detect motion edge:
+//      rising  (0->1) => motion_on callback
+//      falling (1->0) => motion_off callback
+// - detect FAULT marker:
+//      motion == 254 => sensor_fault callback (and reg.fault = true)
+// ============================================================
+
 
 #pragma once
 #include <boost/asio.hpp>
@@ -14,16 +25,7 @@ namespace sls {
 namespace asio = boost::asio;
 using udp = asio::ip::udp;
 
-// ============================================================
-// Regionalni UDP server za telemetriju senzora
-// - async_receive_from
-// - update last_seen + upsert SENSOR u registry
-// - detektuje motion edge:
-//      rising  (0->1) => motion_on callback
-//      falling (1->0) => motion_off callback
-// - detektuje FAULT marker:
-//      motion==254 => sensor_fault callback (i reg.fault=true)
-// ============================================================
+
 
 class UdpTelemetryServer {
 public:
@@ -85,10 +87,10 @@ private:
             std::cerr << "[REGION " << region_id_ << "] SENSOR_FAULT uri=" << uri
                       << " zone=" << zone_id << " (motion=254)\n";
             if(sensor_fault_cb_) sensor_fault_cb_(zone_id, uri, 1);
-            // Napomena: i dalje možeš pustiti receive loop, bez return
+            
           }
 
-          // --- motion edge detekcija (0/1) ---
+          
           if(t.motion == 0 || t.motion == 1){
             uint8_t prev = 0;
             auto it = last_motion_.find(uri);
@@ -125,7 +127,7 @@ private:
   Registry& reg_;
   uint32_t region_id_{0};
 
-  // per-sensor last motion (za edge detekciju)
+  // per-sensor last motion 
   std::unordered_map<std::string, uint8_t> last_motion_;
 
   MotionCallback motion_on_cb_{};

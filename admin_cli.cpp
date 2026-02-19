@@ -1,6 +1,6 @@
 // admin_cli.cpp
 // ============================================================
-// Admin/Dispatcher CLI: traži snapshot od CENTRAL servera (sinhrono)
+// Admin/Dispatcher CLI: requests a snapshot from the CENTRAL server (synchronously)
 // ============================================================
 
 #include <boost/asio.hpp>
@@ -51,7 +51,7 @@ static void print_snapshot(const std::vector<uint8_t>& payload){
       }
     }
 
-    // alarms block (na kraju snapshot-a)
+    // Alarms block
     if(p < e){
       uint16_t acnt = sls::get_u16(p, e);
       std::cout << "--- ALARMS (" << acnt << ") ---\n";

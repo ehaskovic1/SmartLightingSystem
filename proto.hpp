@@ -1,13 +1,14 @@
 #pragma once
 // ============================================================
-// Smart Lighting System (SLS) - zajednički protokol (binarni)
-// - TCP/TLS: "data-stream" -> framing (len + type + payload)
-// - UDP:     "byte-stream" -> fiksna packed struktura TelemetryUdp
+// Smart Lighting System (SLS) - shared protocol (binary)
+// - TCP/TLS: "data-stream"  -> framing (len + type + payload)
+// - UDP:     "byte-stream"  -> fixed packed structure TelemetryUdp
 //
-// Namjena:
-//  - Uređaji (svjetiljke/senzori) <-> Regionalni server
-//  - Regionalni server <-> Centralni server (agregacija / sync)
+// Purpose:
+//  - Devices (lamps/sensors) <-> Regional server
+//  - Regional server <-> Central server (aggregation / sync)
 // ============================================================
+
 
 #include <cstdint>
 #include <cstring>
@@ -17,16 +18,16 @@
 
 namespace sls {
 
-// -------------------- Tipovi poruka (TCP/TLS) --------------------
+// Message types
 enum class MsgType : uint8_t {
   // Device <-> Regional
   REGISTER_REQ   = 1,
   REGISTER_ACK   = 2,
   REGISTER_NACK  = 3,
-  STATUS_REPORT  = 4,   // status svjetiljke (on/off, intenzitet, potrošnja)
-  CMD            = 5,   // komanda servera prema svjetiljci
-  FAULT_REPORT   = 6,   // uređaj prijavljuje kvar (FAULT)
-  FAULT_ACK      = 7,   // server potvrdi prijem FAULT_REPORT
+  STATUS_REPORT  = 4,   
+  CMD            = 5,   
+  FAULT_REPORT   = 6,  
+  FAULT_ACK      = 7,   
 
 
 
@@ -36,8 +37,8 @@ enum class MsgType : uint8_t {
 
 
   // Regional <-> Central
-  REGION_SYNC_UP   = 20, // regional -> central: agregirani podaci (potrošnja po zoni)
-  REGION_SYNC_ACK  = 21, // central -> regional: ACK verzije
+  REGION_SYNC_UP   = 20, // regional -> central: aggregated data (power consumption per zone)
+  REGION_SYNC_ACK  = 21, // central -> regional: version ACK
 
   // Admin (CLI) <-> Central (snapshot/report)
   ADMIN_SNAPSHOT_REQ = 40,
@@ -46,7 +47,7 @@ enum class MsgType : uint8_t {
 
 enum class DeviceType : uint8_t { LUMINAIRE = 1, SENSOR = 2 };
 
-// -------------------- Endian helperi --------------------
+// Endian helpers 
 inline uint32_t to_be32(uint32_t x) {
   return ((x & 0x000000FFu) << 24) |
          ((x & 0x0000FF00u) << 8)  |
@@ -58,7 +59,7 @@ inline uint32_t from_be32(uint32_t x) { return to_be32(x); }
 inline uint16_t to_be16(uint16_t x) { return (uint16_t)((x>>8) | (x<<8)); }
 inline uint16_t from_be16(uint16_t x) { return to_be16(x); }
 
-// -------------------- Minimalna serializacija --------------------
+// Minimal serialization
 inline void put_u8(std::vector<uint8_t>& b, uint8_t v){ b.push_back(v); }
 inline void put_u16(std::vector<uint8_t>& b, uint16_t v){
   b.push_back(uint8_t((v>>8)&0xFF)); b.push_back(uint8_t(v&0xFF));
@@ -91,10 +92,10 @@ inline std::string get_str(const uint8_t*& p, const uint8_t* e){
   p += n; return s;
 }
 
-// -------------------- Strukture poruka (TCP/TLS payload) --------------------
+// Message structures (TCP/TLS payload)
 struct RegisterReq {
   DeviceType type{};
-  std::string uri;   // jedinstveni identifikator (SRS zahtjev)
+  std::string uri;   
   uint32_t zone_id{};
 };
 
@@ -105,23 +106,23 @@ struct StatusReport {
   uint32_t zone_id{};
   uint8_t  on{};        // 0/1
   uint8_t  intensity{}; // 0..100
-  uint32_t power_mw{};  // potrošnja u mW (demo)
+  uint32_t power_mw{};  // consuption (mW) 
 };
 
 struct Command {
   std::string uri;
   uint8_t cmd{};   // 1=SWITCH_ON, 2=SWITCH_OFF, 3=SET_INTENSITY
-  uint8_t value{}; // npr intensity (0..100)
+  uint8_t value{}; 
 };
 
 struct FaultReport {
   std::string uri;
   uint32_t zone_id{};
   uint8_t code{};      // 1=fault_detected, 2=powerloss, 3=comm_lost...
-  std::string text;    // opis
+  std::string text;    
 };
 
-// Summary uređaja po zoni (regional -> central)
+// Device summary per zone (regional -> central)
 struct ZoneDeviceSummary {
   uint32_t zone_id{};
   uint16_t lamp_total{};
@@ -131,13 +132,12 @@ struct ZoneDeviceSummary {
   uint16_t sensor_fault{};
 };
 
-// Regional -> Central (agregacija)
+// Regional -> Central 
 struct RegionSyncUp {
   uint32_t region_id{};
   uint32_t version{};
-  // parovi (zone_id, ukupna_potrošnja_mW) za tu regiju
+  // Pairs (zone_id, total_power_consumption_mW) for that region
   std::vector<std::pair<uint32_t,uint32_t>> zone_power_sum;
-  // NOVO: summary uređaja po zoni
   std::vector<ZoneDeviceSummary> zone_device_summary;
 };
 
@@ -163,23 +163,23 @@ struct AlarmAck {
   uint8_t  ok{};
 };
 
-// Admin snapshot (central izvještaj)
+// Admin snapshot (central report)
 struct AdminSnapshotAck {
   std::vector<uint8_t> raw;
 };
 
-// -------------------- UDP telemetry (byte-stream) --------------------
+// UDP telemetry (byte-stream)
 #pragma pack(push,1)
 struct TelemetryUdp {
-  char     uri[48];        // nul-terminated ili padded nulama
+  char     uri[48];        // nul-terminated ili padded 0
   uint32_t zone_id_be;
   uint16_t lux_be;
   uint8_t  motion;         // 0/1
-  int16_t  temp_c_x10_be;  // npr 235 = 23.5C
+  int16_t  temp_c_x10_be;  
 };
 #pragma pack(pop)
 
-// -------------------- Encode/Decode helpers --------------------
+//  Encode/Decode helpers 
 inline std::vector<uint8_t> encode_register_req(const RegisterReq& r){
   std::vector<uint8_t> b;
   put_u8(b, static_cast<uint8_t>(r.type));
@@ -299,7 +299,7 @@ inline FaultReport decode_fault_report(const uint8_t* p, size_t n){
   return f;
 }
 
-// -------------------- RegionSyncUp (PROŠIRENO) --------------------
+// RegionSyncUp 
 inline std::vector<uint8_t> encode_region_sync_up(const RegionSyncUp& s){
   std::vector<uint8_t> b;
 
@@ -313,7 +313,7 @@ inline std::vector<uint8_t> encode_region_sync_up(const RegionSyncUp& s){
     put_u32(b, zp.second);  // sum_power_mW
   }
 
-  // 2) zone_device_summary (NOVO)
+  // 2) zone_device_summary
   put_u16(b, static_cast<uint16_t>(s.zone_device_summary.size()));
   for(const auto& zs : s.zone_device_summary){
     put_u32(b, zs.zone_id);
@@ -342,8 +342,8 @@ inline RegionSyncUp decode_region_sync_up(const uint8_t* p, size_t n){
     s.zone_power_sum.push_back({z,pw});
   }
 
-  // 2) zone_device_summary (NOVO, ali backward compatible)
-  if(p >= e) return s; // stara verzija bez summary bloka
+  // zone_device_summary 
+  if(p >= e) return s; 
 
   uint16_t scnt = get_u16(p,e);
   for(uint16_t i=0;i<scnt;i++){

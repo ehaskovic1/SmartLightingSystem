@@ -1,29 +1,13 @@
 
 // sensor_udp.cpp
-// ============================================================
-// Senzor (UDP, EVENT-DRIVEN)
-// - Šalje telemetriju samo kada se desi EVENT:
-//     1) Motion rising edge (0 -> 1)
-//     2) Motion falling edge (1 -> 0)   <-- koristi se za "ugasiti lampu" (preko regionalnog)
-//     3) Promjena lux-a >= lux_threshold
-//     4) Promjena temperature >= temp_threshold_x10
-// - Opcionalno: rijedak heartbeat (default 30s)
-//
-// NOTE:
-// - UDP paket je TelemetryUdp (proto.hpp).
-// - Regionalni server tretira motion==1 kao "motion event" i tada šalje
-//   CMD lampi u istoj zoni (SWITCH_ON + SET_INTENSITY).
-// - Za gašenje: senzor šalje event sa motion==0 (falling edge), a regionalni
-//   treba na to poslati CMD SWITCH_OFF lampi.
-//
-// FSM (demo):
+// FSM
 //   IDLE -> UNREGISTERED (boot_done)
 //   UNREGISTERED -> REGISTERING (send_uri/REGISTER_REQ)  // demo
 //   REGISTERING -> ACTIVE (udp_ready/REGISTER_ACK(demo))
 //   ACTIVE -> ACTIVE (event_report)
 //   ACTIVE -> FAULT (fault_detected/FAULT_REPORT)
 //   FAULT -> IDLE (reset)
-// ============================================================
+
 
 #include <boost/asio.hpp>
 #include <iostream>
@@ -41,7 +25,7 @@
 namespace asio = boost::asio;
 using udp = asio::ip::udp;
 
-// ===================== ENDIAN HELPERS =====================
+//  ENDIAN HELPERS 
 static uint16_t swap16(uint16_t x){ return uint16_t((x>>8) | (x<<8)); }
 static uint32_t swap32(uint32_t x){
   return ((x & 0x000000FFu) << 24) |
@@ -50,14 +34,14 @@ static uint32_t swap32(uint32_t x){
          ((x & 0xFF000000u) >> 24);
 }
 
-// ===================== RANDOM HELPERS =====================
+// RANDOM HELPERS 
 static uint32_t urand(uint32_t a, uint32_t b){
   static std::mt19937 rng{std::random_device{}()};
   std::uniform_int_distribution<uint32_t> d(a,b);
   return d(rng);
 }
 
-// ===================== FSM DEFINICIJA =====================
+// FSM 
 enum class SensorState { IDLE, UNREGISTERED, REGISTERING, ACTIVE, FAULT };
 
 static std::string to_string(SensorState s){
@@ -112,11 +96,6 @@ private:
   TransitionMatrix transitions_;
 };
 
-// ===================== UDP SEND HELPERS =====================
-// motion meanings for UDP layer (dogovor sa regionalnim):
-//   motion = 0/1  -> normalno
-//   motion = 254  -> FAULT marker (demo)
-// (TelemetryUdp nema msg_type, pa marker mora biti kroz motion vrijednost)
 static void send_telemetry(udp::socket& sock,
                            const udp::endpoint& server,
                            const std::string& uri,
@@ -137,7 +116,6 @@ static void send_telemetry(udp::socket& sock,
   sock.send_to(asio::buffer(&t, sizeof(t)), server);
 }
 
-// =============================== MAIN ===============================
 int main(int argc, char** argv){
   if(argc < 6){
     std::cerr
@@ -153,7 +131,7 @@ int main(int argc, char** argv){
 
   asio::io_context io;
 
-  // Ctrl+C gašenje (praktično za demo)
+  // Ctrl+C poweroff
   asio::signal_set signals(io, SIGINT, SIGTERM);
   signals.async_wait([&](auto, auto){
     std::cout << "[SENSOR] Signal received, stopping...\n";
@@ -167,7 +145,7 @@ int main(int argc, char** argv){
   std::string uri = argv[3];
   uint32_t zone = (uint32_t)std::stoul(argv[4]);
 
-  int run_s = std::stoi(argv[5]); // 0 => beskonačno
+  int run_s = std::stoi(argv[5]); // 0 => infinity
 
   const uint16_t lux_threshold = (argc >= 7) ? (uint16_t)std::stoul(argv[6]) : (uint16_t)25;
   const int16_t  temp_threshold_x10 = (argc >= 8) ? (int16_t)std::stoi(argv[7]) : (int16_t)10;
@@ -178,14 +156,12 @@ int main(int argc, char** argv){
 
   SensorFsm fsm;
 
-  // ---------------- BOOT ----------------
+  // BOOT
   fsm.switch_to(SensorState::UNREGISTERED, "boot_done");
 
-// ---------------- "REGISTER" (DEMO) ----------------
-// UDP nema pravu registraciju, ali FSM-u treba tok:
-// UNREGISTERED -> REGISTERING -> ACTIVE
+
 if(fsm.switch_to(SensorState::REGISTERING, "send_uri/REGISTER_REQ(demo)")){
-  // Timer mora živjeti dovoljno dugo -> shared_ptr
+  // The timer must live long enough -> use shared_ptr
   auto ack_demo = std::make_shared<asio::steady_timer>(io);
   ack_demo->expires_after(std::chrono::milliseconds(200));
   ack_demo->async_wait([&, ack_demo](const boost::system::error_code& ec){
@@ -201,7 +177,7 @@ if(fsm.switch_to(SensorState::REGISTERING, "send_uri/REGISTER_REQ(demo)")){
   asio::steady_timer stop_timer(io);
   asio::steady_timer fault_reset_timer(io);
 
-  // Simulacija mjerenja
+  // Measurement simulation
   uint16_t lux = 200, prev_lux = 200;
   uint8_t motion = 0, prev_motion = 0;
   int16_t temp_x10 = 235, prev_temp_x10 = 235;
@@ -216,10 +192,9 @@ if(fsm.switch_to(SensorState::REGISTERING, "send_uri/REGISTER_REQ(demo)")){
         if(ec) return;
         if(fsm.get() == SensorState::FAULT){
           fsm.switch_to(SensorState::IDLE, "reset");
-          // nakon reset-a tipično ide ponovni boot:
+          // After a reset, a reboot typically follows:
           fsm.switch_to(SensorState::UNREGISTERED, "boot_done");
           fsm.switch_to(SensorState::REGISTERING, "send_uri/REGISTER_REQ(demo)");
-          // i vrlo brzo ACTIVE
           fsm.switch_to(SensorState::ACTIVE, "udp_ready/REGISTER_ACK(demo)");
         }
       });
@@ -232,36 +207,35 @@ if(fsm.switch_to(SensorState::REGISTERING, "send_uri/REGISTER_REQ(demo)")){
     tick_timer.async_wait([&](const boost::system::error_code& ec){
       if(ec) return;
 
-      // --- simulacija ---
+      
       lux = (uint16_t)(180 + (seconds_elapsed % 60));
-      // motion simulacija: 1 jedan tick svakih ~7s, pa se vraća na 0
       motion = (seconds_elapsed % 7 == 0) ? 1 : 0;
       temp_x10 = (int16_t)(235 + ((seconds_elapsed/20) % 6));
 
-      // event detekcija
+      // event detection
       bool motion_rise = (prev_motion == 0 && motion == 1);
-      bool motion_fall = (prev_motion == 1 && motion == 0); // <-- BITNO za OFF
+      bool motion_fall = (prev_motion == 1 && motion == 0); 
       bool lux_changed  = (std::abs((int)lux - (int)prev_lux) >= (int)lux_threshold);
       bool temp_changed = (std::abs((int)temp_x10 - (int)prev_temp_x10) >= (int)temp_threshold_x10);
       bool heartbeat_due = (heartbeat_s > 0) && (seconds_elapsed - last_heartbeat >= heartbeat_s);
 
-      // FAULT simulacija (random)
+      // FAULT simulation
       if(fsm.get() == SensorState::ACTIVE && fault_prob_per_mille > 0){
         if(urand(1,1000) <= fault_prob_per_mille){
           if(fsm.switch_to(SensorState::FAULT, "fault_detected/FAULT_REPORT")){
-            // šaljemo FAULT marker preko motion=254 (demo dogovor)
+           // Send FAULT marker via motion=254 (demo convention)
             send_telemetry(sock, server, uri, zone, 0, 254, 0);
             arm_fault_reset();
           }
         }
       }
 
-      // normalan rad: samo u ACTIVE
+      
       if(fsm.get() == SensorState::ACTIVE){
         if(motion_rise || motion_fall || lux_changed || temp_changed || heartbeat_due){
           fsm.switch_to(SensorState::ACTIVE, "event_report");
 
-          // Šaljemo motion i kad je 0 (fall event) -> regional može poslati CMD OFF lampi
+          // Send motion even when it is 0 (fall event) -> the regional server can send CMD OFF to the lamp
           send_telemetry(sock, server, uri, zone, lux, motion, temp_x10);
 
           if(heartbeat_due) last_heartbeat = seconds_elapsed;
@@ -279,7 +253,7 @@ if(fsm.switch_to(SensorState::REGISTERING, "send_uri/REGISTER_REQ(demo)")){
 
   schedule_tick();
 
-  // Trajanje: run_s==0 -> beskonačno (Ctrl+C)
+  // Duration: run_s == 0 -> infinite (Ctrl+C)
   if(run_s > 0){
     stop_timer.expires_after(std::chrono::seconds(run_s));
     stop_timer.async_wait([&](auto){ io.stop(); });

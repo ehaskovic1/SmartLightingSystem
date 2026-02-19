@@ -75,7 +75,7 @@ public:
   DbWriter(const DbWriter&) = delete;
   DbWriter& operator=(const DbWriter&) = delete;
 
-  // Open DB + apply schema (schema_sql_file is optional; can be "")
+  // Open DB + apply schema (schema_sql_file is optional)
   void start(const std::string& db_path, const std::string& schema_sql_file = "");
   void stop();
 

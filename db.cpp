@@ -207,8 +207,6 @@ void DbWriter::worker_main() {
     try {
       std::visit([this](auto&& x){ handle(x); }, ev);
     } catch (const std::exception& e) {
-      // Ne ruši server zbog DB greške; samo ignoriši/loguj
-      // (Ako želiš, ovdje možeš std::cerr << ...)
       (void)e;
     }
   }

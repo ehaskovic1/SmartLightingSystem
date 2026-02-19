@@ -4,13 +4,13 @@
 #include <vector>
 #include <cstdint>
 #include <string>
-
 #include "proto.hpp"
 
 namespace sls {
 
-// Centralni server drži agregirane podatke iz regiona:
+// The central server maintains aggregated data received from regions:
 // region_id -> { version, zone_power_sum, zone_device_summary }
+
 struct RegionAggregate {
   uint32_t version{0};
 
@@ -21,7 +21,7 @@ struct RegionAggregate {
   std::unordered_map<uint32_t, ZoneDeviceSummary> zone_summary;
 };
 
-// Alarm record držimo u CentralStore (globalna lista, zadnjih N po želji)
+// Alarm records are stored in CentralStore (global list, last N entries if desired)
 struct AlarmRecord {
   uint32_t region_id{0};
   uint32_t ts_unix{0};
@@ -34,7 +34,7 @@ struct AlarmRecord {
 
 class CentralStore {
 public:
-  // Prima i power i summary
+  // Receives both power and summary
   void upsert_region(uint32_t region_id,
                      uint32_t version,
                      const std::vector<std::pair<uint32_t,uint32_t>>& zone_power_sum,
@@ -65,7 +65,7 @@ public:
     std::scoped_lock lk(mu_);
     alarms_.push_back(a);
 
-    // opciono: limitiraj listu da ne raste beskonačno
+    // Optional: limit the list to prevent unbounded growth
     constexpr size_t MAX_ALARMS = 2000;
     if(alarms_.size() > MAX_ALARMS){
       alarms_.erase(alarms_.begin(), alarms_.begin() + (alarms_.size() - MAX_ALARMS));

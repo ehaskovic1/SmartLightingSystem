@@ -8,14 +8,14 @@
 
 namespace sls {
 
-// ---- Client-side PQC config (TLS1.3 + KEM group + sigalgs) ----
+// Client-side PQC config (TLS1.3 + KEM group + sigalgs) 
 inline void apply_pqc_client(asio::ssl::context& ctx) {
   SSL_CTX* c = ctx.native_handle();
 
   SSL_CTX_set_min_proto_version(c, TLS1_3_VERSION);
   SSL_CTX_set_max_proto_version(c, TLS1_3_VERSION);
 
-  // KEM / key share (hibridni)
+  // KEM / key share (hybrid)
   if (SSL_CTX_set1_groups_list(c, "X25519MLKEM768") != 1)
     throw std::runtime_error("SSL_CTX_set1_groups_list failed");
 
@@ -24,7 +24,7 @@ inline void apply_pqc_client(asio::ssl::context& ctx) {
     throw std::runtime_error("SSL_CTX_set1_sigalgs_list failed");
 }
 
-// ---- Server-side PQC load (BIO -> X509 + EVP_PKEY -> SSL_CTX_use_*) ----
+// Server-side PQC load (BIO -> X509 + EVP_PKEY -> SSL_CTX_use_*) 
 inline void apply_pqc_server(asio::ssl::context& ctx,
                              const std::string& cert_file,
                              const std::string& key_file) {
@@ -69,7 +69,7 @@ inline void apply_pqc_server(asio::ssl::context& ctx,
   X509_free(cert);
   EVP_PKEY_free(pkey);
 
-  // (Opcionalno) provjera da key odgovara cert-u:
+  // (Optional) verify that the key matches the certificate:
   if (SSL_CTX_check_private_key(c) != 1)
     throw std::runtime_error("SSL_CTX_check_private_key failed");
 }

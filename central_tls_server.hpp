@@ -18,8 +18,9 @@ using tcp = asio::ip::tcp;
 using ssl_socket = asio::ssl::stream<tcp::socket>;
 
 // ============================================================
-// Centralni TLS server (agregacija + admin snapshot + alarmi)
+// Central TLS server (aggregation + admin snapshot + alarms)
 // ============================================================
+
 
 class CentralSession : public std::enable_shared_from_this<CentralSession> {
 public:
@@ -123,7 +124,7 @@ private:
       }
     }
 
-    // --- alarms block (na KRAJ, ne u petlji regiona) ---
+    //Alarms block (at the END, not inside the region loop) 
     auto alarms = store_.alarms_snapshot();
     put_u16(out, static_cast<uint16_t>(alarms.size()));
     for(const auto& a : alarms){
@@ -151,7 +152,7 @@ private:
         case MsgType::REGION_SYNC_UP: {
           auto up = decode_region_sync_up(p,n);
 
-          // DB log (ako želiš)
+          // DB log 
           db_.log_region_sync(up.region_id, up.version, up.zone_power_sum);
 
           store_.upsert_region(up.region_id, up.version, up.zone_power_sum, up.zone_device_summary);
@@ -161,8 +162,6 @@ private:
           break;
         }
 
-        // OVO radi samo ako si u proto.hpp dodala MsgType::ALARM_UP i MsgType::ALARM_ACK
-        // i definisala decode_alarm_up()/encode_alarm_ack().
         case MsgType::ALARM_UP: {
           auto up = decode_alarm_up(p,n);
 
@@ -177,7 +176,7 @@ private:
 
           store_.push_alarm(ar);
 
-          // opcionalno i u DB
+          
           db_.log_alarm(ar.region_id, ar.ts_unix, ar.device_type, ar.zone_id, ar.code, ar.uri, ar.text);
 
           AlarmAck ack{ up.region_id, up.ts_unix, 1 };

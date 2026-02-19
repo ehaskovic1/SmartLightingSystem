@@ -1,9 +1,9 @@
 #pragma once
 // ============================================================
 // Framed TLS stream helper:
-// TCP je byte-stream, zato radimo framing:
+// TCP -> byte-stream -> framing:
 // [uint32_be length][uint8 type][payload...]
-// length = 1 + payload_size (uključuje MsgType byte)
+// length = 1 + payload_size (including MsgType byte)
 // ============================================================
 
 #include <boost/asio.hpp>

@@ -1,28 +1,12 @@
-/*
-#pragma once
-#include <boost/asio.hpp>
-#include <boost/asio/ssl.hpp>
-#include <iostream>
-#include <memory>
-#include <array>
-#include <cstring>
-
-#include "proto.hpp"
-#include "registry.hpp"
-#include "framed_tls.hpp"
-
-namespace sls {
-namespace asio = boost::asio;
-using tcp = asio::ip::tcp;
-
 // ============================================================
-// Regional -> Central: periodični SYNC (async)
-// - Na svakih N sekundi uzme agregaciju iz Registry (zone_power_sum)
-// - Uspostavi TLS konekciju prema centralnom, pošalje REGION_SYNC_UP, primi ACK
-// - Ovo vam je "server-server" komunikacija, ali preko centralnog (hijerarhija):
-//   uređaji -> regionalni -> centralni
+// Regional -> Central: periodic SYNC (async)
+// - Every N seconds, fetches aggregation from the Registry (zone_power_sum)
+// - Establishes a TLS connection to the central server, sends REGION_SYNC_UP, receives ACK
+// - This is "server-to-server" communication, but via the central node (hierarchy):
+//   devices -> regional -> central
 // ============================================================
-*/
+
+
 
 #pragma once
 #include <boost/asio.hpp>
@@ -37,19 +21,20 @@ using tcp = asio::ip::tcp;
 #include "proto.hpp"
 #include "registry.hpp"
 #include "framed_tls.hpp"
-#include "pqc_tls.hpp" //dodala 18feb
+#include "pqc_tls.hpp" 
 
 namespace sls {
 namespace asio = boost::asio;
 using tcp = asio::ip::tcp;
 
 // ============================================================
-// Regional -> Central: periodični SYNC (async)
-// - Na svakih N sekundi uzme agregaciju iz Registry:
-//     * zone_power_sum (već postojalo)
-//     * zone_device_summary (NOVO)
-// - Uspostavi TLS konekciju prema centralnom, pošalje REGION_SYNC_UP, primi ACK
+// Regional -> Central: periodic SYNC (async)
+// - Every N seconds, fetches aggregation from the Registry:
+//     * zone_power_sum (already existed)
+//     * zone_device_summary (NEW)
+// - Establishes a TLS connection to the central server, sends REGION_SYNC_UP, receives ACK
 // ============================================================
+
 
 class RegionSyncClient : public std::enable_shared_from_this<RegionSyncClient> {
 public:
@@ -83,7 +68,7 @@ public:
   }
 
 void send_alarm_now(const AlarmUp& alarm){
-    // šalje odmah, ne dira periodicni tick
+    
     post_alarm(alarm);
   }
   
@@ -98,19 +83,15 @@ private:
   }
 
   void do_sync_once(){
-    // pripremi payload iz registra
+    // Prepare payload from the registry
     RegionSyncUp up;
     up.region_id = region_id_;
     up.version   = ++version_;
 
-    // postojeće: potrošnja po zonama
     up.zone_power_sum = reg_.zone_power_sum();
 
-    // NOVO: summary uređaja po zonama
-    // (Ovo zahtijeva da u Registry implementiraš: zone_device_summary())
     up.zone_device_summary = reg_.zone_device_summary();
 
-    // novi socket po tick-u (jednostavnije i robustnije)
     sock_ = std::make_unique<asio::ssl::stream<tcp::socket>>(io_, ssl_ctx_);
 
     auto self = shared_from_this();
@@ -205,7 +186,6 @@ private:
   }
   
   void post_alarm(AlarmUp alarm){
-    // novi socket za alarm (isto kao sync), robustno
     alarm_sock_ = std::make_unique<asio::ssl::stream<tcp::socket>>(io_, ssl_ctx_);
 
     auto self = shared_from_this();
