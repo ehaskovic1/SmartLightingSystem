@@ -5,7 +5,7 @@ source tests/common.sh
 [[ -f "$CERT" ]] || die "Missing cert: $CERT"
 [[ -f "$KEY"  ]] || die "Missing key: $KEY"
 
-# ubij stare procese (da ne bude bind error)
+# (da ne bude bind error)
 pkill -f central_server || true
 sleep 1
 

@@ -173,7 +173,7 @@ echo "[test_05] killing lamp to force comm_lost..."
 kill -KILL "$LAMP_PID" 2>/dev/null || true
 LAMP_PID=""
 
-WAIT_S=$((COMM_LOST_TIMEOUT_S + 15))  # comm_lost tick je svakih 5s u tvom kodu
+WAIT_S=$((COMM_LOST_TIMEOUT_S + 15))  
 echo "[test_05] waiting up to ${WAIT_S}s for comm_lost..."
 wait_comm_lost_or_die "$LAMP_URI" "$WAIT_S"
 

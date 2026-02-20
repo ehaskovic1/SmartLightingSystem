@@ -74,7 +74,7 @@ alarm_count_from_snapshot(){
   '
 }
 
-# Generiše i kompajlira BINARNI UDP sender koji koristi tvoje proto.hpp (TelemetryUdp)
+# Generiše i kompajlira BINARNI UDP sender koji koristi proto.hpp (TelemetryUdp)
 build_udp_sender(){
   cat > tests/_tmp/udp_send_bin.cpp <<'CPP'
 #include <arpa/inet.h>
